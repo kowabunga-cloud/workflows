@@ -9,8 +9,6 @@ on:
 
 env:
   GO_VERSION: 1.26
-  CHECKOUT_VERSION: 6
-  SETUP_GO_VERSION: 6
 
 jobs:
   vet:
@@ -19,9 +17,9 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v${{ env.CHECKOUT_VERSION }}
+        uses: actions/checkout@v6
       - name: Setup Go
-        uses: actions/setup-go@v${{ env.SETUP_GO_VERSION }}
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Code Acceptance
@@ -33,9 +31,9 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v${{ env.CHECKOUT_VERSION }}
+        uses: actions/checkout@v6
       - name: Setup Go
-        uses: actions/setup-go@v${{ env.SETUP_GO_VERSION }}
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Linter
@@ -55,9 +53,9 @@ jobs:
     steps:
       - name: Install package dependencies
         run: sudo apt-get install -y debhelper ${{ inputs.pkgs }}
-      - uses: actions/checkout@v${{ env.CHECKOUT_VERSION }}
+      - uses: actions/checkout@v6
       - name: Setup Go
-        uses: actions/setup-go@v${{ env.SETUP_GO_VERSION }}
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Retrieve dependencies
@@ -71,9 +69,9 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v${{ env.CHECKOUT_VERSION }}
+        uses: actions/checkout@v6
       - name: Setup Go
-        uses: actions/setup-go@v${{ env.SETUP_GO_VERSION }}
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Tests
