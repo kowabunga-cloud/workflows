@@ -53,7 +53,7 @@ jobs:
 
       - name: Debug
         run: |
-          echo "Version: ${{ steps.release.outputs.new_release_version }}"
+          echo "Version: ${{ steps.semantic.outputs.new_release_version }}"
 
   # build:
   #   needs: release
