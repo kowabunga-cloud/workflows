@@ -51,51 +51,55 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
-  build:
-    needs: release
-    name: Multiarch builds
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            arch: amd64
-            version: noble
-          - os: ubuntu-24.04-arm
-            arch: arm64
-            version: noble
+      - name: Debug
+        run:
+          echo "Version: ${{ steps.release.outputs.new_release_version }}"
 
-    steps:
-      - name: Install package dependencies
-        run: sudo apt-get install -y debhelper ${{ inputs.pkgs }}
-      - uses: actions/checkout@v6
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - name: Build
-        run: make all PROD=1
-      - name: Build Debian package
-        run: |
-          DIST=${{ matrix.version }} \
-          RELEASE=${{ release.outputs.new_release_version }} ./debian.sh
-      - name: Upload Assets to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ release.outputs.new_release_version }}
-          files: |
-            ../*.deb
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # build:
+  #   needs: release
+  #   name: Multiarch builds
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         - os: ubuntu-24.04
+  #           arch: amd64
+  #           version: noble
+  #         - os: ubuntu-24.04-arm
+  #           arch: arm64
+  #           version: noble
 
-  publish:
-    name: Trigger packages publishing
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger APT repository update
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: '${{ secrets.PAT_PACKAGES_WORKFLOW_TOKEN }}'
-          repository: kowabunga-cloud/packages
-          event-type: Publish-Deb
+  #   steps:
+  #     - name: Install package dependencies
+  #       run: sudo apt-get install -y debhelper ${{ inputs.pkgs }}
+  #     - uses: actions/checkout@v6
+  #     - name: Setup Go
+  #       uses: actions/setup-go@v6
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
+  #     - name: Build
+  #       run: make all PROD=1
+  #     - name: Build Debian package
+  #       run: |
+  #         DIST=${{ matrix.version }} \
+  #         RELEASE=${{ needs.release.outputs.new_release_version }} ./debian.sh
+  #     - name: Upload Assets to GitHub Release
+  #       uses: softprops/action-gh-release@v2
+  #       with:
+  #         tag_name: v${{ needs.release.outputs.new_release_version }}
+  #         files: |
+  #           ../*.deb
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # publish:
+  #   name: Trigger packages publishing
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Trigger APT repository update
+  #       uses: peter-evans/repository-dispatch@v3
+  #       with:
+  #         token: '${{ secrets.PAT_PACKAGES_WORKFLOW_TOKEN }}'
+  #         repository: kowabunga-cloud/packages
+  #         event-type: Publish-Deb
