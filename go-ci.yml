@@ -1,0 +1,84 @@
+name: (reusable) Go Continuous Integration
+
+on:
+  workflow_call:
+    inputs:
+      pkgs:
+        required: false
+        type: string
+
+env:
+  GO_VERSION: 1.26
+  CHECKOUT_VERSION: 6
+  SETUP_GO_VERSION: 6
+
+jobs:
+  vet:
+    name: Code Review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v${{ CHECKOUT_VERSION }}
+      - name: Setup Go
+        uses: actions/setup-go@v${{ SETUP_GO_VERSION }}
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Code Acceptance
+        run: make vet
+
+  lint:
+    name: Code Linter
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v${{ CHECKOUT_VERSION }}
+      - name: Setup Go
+        uses: actions/setup-go@v${{ SETUP_GO_VERSION }}
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Linter
+        run: make lint
+
+  build:
+    name: Multiarch builds
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+
+    steps:
+      - name: Install package dependencies
+        run: sudo apt-get install -y debhelper ${{ inputs.pkgs }}
+      - uses: actions/checkout@v${{ CHECKOUT_VERSION }}
+      - name: Setup Go
+        uses: actions/setup-go@v${{ SETUP_GO_VERSION }}
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Retrieve dependencies
+        run: make mod
+      - name: Build
+        run: make build
+
+  tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v${{ CHECKOUT_VERSION }}
+      - name: Setup Go
+        uses: actions/setup-go@v${{ SETUP_GO_VERSION }}
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Tests
+        run: make tests
+      - name: Upload test results to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
