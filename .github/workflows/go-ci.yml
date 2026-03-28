@@ -70,6 +70,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Update packages
+        run: sudo apt-get update
+      - name: Install package dependencies
+        run: sudo apt-get install -y debhelper ${{ inputs.pkgs }}
       - name: Checkout sources
         uses: actions/checkout@v6
       - name: Setup Go
