@@ -38,15 +38,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # release packages target Ubuntu 24.04 LTS (noble): build them on it,
-        # so that they don't depend on newer system libraries
+        # release packages target Ubuntu 26.04 LTS (resolute): build them on
+        # it, so that they match its system libraries
         include:
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             arch: amd64
-            version: noble
-          - os: ubuntu-24.04-arm
+            version: resolute
+          - os: ubuntu-26.04-arm
             arch: arm64
-            version: noble
+            version: resolute
 
     steps:
       - name: Update packages

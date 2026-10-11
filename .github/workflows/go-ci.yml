@@ -61,11 +61,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # Ubuntu 24.04 LTS (noble) is the release packages target, Ubuntu
-        # 26.04 LTS (resolute) the latest one
+        # Ubuntu 26.04 LTS (resolute), release packages target
         os:
-          - ubuntu-24.04
-          - ubuntu-24.04-arm
           - ubuntu-26.04
           - ubuntu-26.04-arm
 

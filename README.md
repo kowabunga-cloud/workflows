@@ -14,10 +14,10 @@ This is a collection of shared GitHub Action workflows.
 |----------|---------|
 | [`commitlint.yml`](.github/workflows/commitlint.yml) | Validates pushed commits and pull requests (commits and title) against Conventional Commits. |
 | [`release.yml`](.github/workflows/release.yml) | Semantic release (version, changelog, tag and GitHub release) out of Conventional Commits, without building anything. Projects publish from workflows triggered by the GitHub release publication. |
-| [`go-ci.yml`](.github/workflows/go-ci.yml) | Go code review, linter, multi-arch builds (Ubuntu 24.04 and 26.04) and unit tests (optionally with a MongoDB server, `mongodb: true`, exposed as `TEST_MONGODB_URI`). |
+| [`go-ci.yml`](.github/workflows/go-ci.yml) | Go code review, linter, multi-arch builds (Ubuntu 26.04) and unit tests (optionally with a MongoDB server, `mongodb: true`, exposed as `TEST_MONGODB_URI`). |
 | [`go-sec.yml`](.github/workflows/go-sec.yml) | Go security checks (gosec). |
 | [`go-vuln.yml`](.github/workflows/go-vuln.yml) | Go vulnerabilities checks (govulncheck). |
-| [`go-release.yml`](.github/workflows/go-release.yml) | Semantic release, then Ubuntu 24.04 (noble) Debian packages build and APT repository publishing. |
+| [`go-release.yml`](.github/workflows/go-release.yml) | Semantic release, then Ubuntu 26.04 (resolute) Debian packages build and APT repository publishing. |
 | [`openapi-release.yml`](.github/workflows/openapi-release.yml) | Semantic release of the OpenAPI specification, notifying API consumers (`dispatch` input) of new releases through an `openapi-release` repository dispatch event. |
 | [`openapi-update.yml`](.github/workflows/openapi-update.yml) | Updates a project to a new API release: regenerates code, then either validates, commits and releases it with the API version (`mode: release`, SDKs), or opens a pull request (`mode: pull-request`, or on validation failure). |
 
