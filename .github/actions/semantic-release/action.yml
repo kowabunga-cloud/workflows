@@ -24,8 +24,8 @@ outputs:
 runs:
   using: composite
   steps:
-    # tags pushed with a GitHub App token (unlike GITHUB_TOKEN) trigger
-    # downstream workflows, e.g. tag-based package publishing
+    # events caused by a GitHub App token (unlike GITHUB_TOKEN) trigger
+    # other workflows, e.g. package publishing on GitHub release publication
     - name: Create GitHub App token
       id: app-token
       uses: actions/create-github-app-token@v3

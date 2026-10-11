@@ -13,7 +13,7 @@ This is a collection of shared GitHub Action workflows.
 | Workflow | Purpose |
 |----------|---------|
 | [`commitlint.yml`](.github/workflows/commitlint.yml) | Validates pushed commits and pull requests (commits and title) against Conventional Commits. |
-| [`release.yml`](.github/workflows/release.yml) | Semantic release (version, changelog, tag and GitHub release) out of Conventional Commits, without building anything. Tag-triggered publishing workflows get triggered by the pushed tag. |
+| [`release.yml`](.github/workflows/release.yml) | Semantic release (version, changelog, tag and GitHub release) out of Conventional Commits, without building anything. Projects publish from workflows triggered by the GitHub release publication. |
 | [`go-ci.yml`](.github/workflows/go-ci.yml) | Go code review, linter, multi-arch builds (Ubuntu 24.04 and 26.04) and unit tests (optionally with a MongoDB server, `mongodb: true`, exposed as `TEST_MONGODB_URI`). |
 | [`go-sec.yml`](.github/workflows/go-sec.yml) | Go security checks (gosec). |
 | [`go-vuln.yml`](.github/workflows/go-vuln.yml) | Go vulnerabilities checks (govulncheck). |
@@ -22,7 +22,15 @@ This is a collection of shared GitHub Action workflows.
 
 Go workflows use the latest patch release of the Go version declared in `go.mod`.
 
-Release workflows share the [`semantic-release`](.github/actions/semantic-release/action.yml) composite action, which pins the whole semantic-release toolchain. They require the `KOWABUNGA_BOT_APP_ID` variable and `KOWABUNGA_BOT_PRIVATE_KEY` secret (GitHub App), so that release commits and tags can be pushed, and trigger tag-based workflows.
+Release workflows share the [`semantic-release`](.github/actions/semantic-release/action.yml) composite action, which pins the whole semantic-release toolchain. They require the `KOWABUNGA_BOT_APP_ID` variable and `KOWABUNGA_BOT_PRIVATE_KEY` secret (GitHub App), so that release commits and tags can be pushed, and other workflows be triggered.
+
+Release commits carry `[skip ci]`, which also prevents their tag push from triggering workflows: projects publishing packages out of a release (e.g. to PyPI, npm, Ansible Galaxy or the APT repository) must do so from workflows triggered by the GitHub release publication:
+
+```yaml
+on:
+  release:
+    types: [published]
+```
 
 Typical usage, releasing on every push to the main branch:
 

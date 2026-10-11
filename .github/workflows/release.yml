@@ -1,8 +1,9 @@
 name: (reusable) Semantic Release
 
 # Releases a new version out of Conventional Commits, without building
-# anything. Projects publishing from tag-triggered workflows (e.g. PyPI, npm,
-# Ansible Galaxy, Debian packages) get them triggered by the pushed tag.
+# anything. Projects publish packages (e.g. PyPI, npm, Ansible Galaxy, Debian
+# packages) from workflows triggered by the GitHub release publication: the
+# release commit carrying [skip ci], its tag push doesn't trigger workflows.
 
 on:
   workflow_call:
