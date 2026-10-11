@@ -1,0 +1,244 @@
+name: (reusable) OpenAPI Update
+
+# Updates a project to a new Kowabunga API (OpenAPI specification) release:
+# regenerates the API code, then, in "release" mode (SDKs), validates it,
+# commits it to the main branch and releases it with the API version, or, in
+# "pull-request" mode (or if validation failed), opens a pull request.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: API version (e.g. 0.57.1)
+        required: true
+        type: string
+      mode:
+        description: release (commit, tag and release) or pull-request
+        required: false
+        type: string
+        default: release
+      tag-prefix:
+        description: Release tags prefix (e.g. v for Go modules)
+        required: false
+        type: string
+        default: v
+      setup:
+        description: Toolchain to set up (go, python or node)
+        required: true
+        type: string
+      update:
+        description: >-
+          Shell commands regenerating the API code for the $VERSION API
+          version
+        required: true
+        type: string
+      test:
+        description: Shell commands validating the regenerated code
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  update:
+    name: Update to API v${{ inputs.version }}
+    runs-on: ubuntu-26.04
+    concurrency:
+      group: openapi-update-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      VERSION: ${{ inputs.version }}
+      TAG: ${{ inputs.tag-prefix }}${{ inputs.version }}
+      BRANCH: openapi/v${{ inputs.version }}
+      MODE: ${{ inputs.mode }}
+    steps:
+      - name: Validate inputs
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid API version: ${VERSION}"
+            exit 1
+          fi
+          if [[ "$MODE" != "release" && "$MODE" != "pull-request" ]]; then
+            echo "::error::Invalid mode: ${MODE}"
+            exit 1
+          fi
+
+      # pushes, pull requests and releases made with a GitHub App token
+      # (unlike GITHUB_TOKEN) trigger CI and publishing workflows
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.KOWABUNGA_BOT_APP_ID }}
+          private-key: ${{ secrets.KOWABUNGA_BOT_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Find out Go version
+        if: inputs.setup == 'go'
+        run: |
+          v=$(sed -nE 's/^go ([0-9]+\.[0-9]+).*/\1/p' go.mod)
+          echo "GO_VERSION=${v}" >> "$GITHUB_ENV"
+      - name: Setup Go
+        if: inputs.setup == 'go'
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+      - name: Setup Python
+        if: inputs.setup == 'python'
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+      # OpenAPI Generator CLI
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Regenerate API code
+        run: ${{ inputs.update }}
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Already up to date with API v${VERSION}" \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git status --short
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate regenerated code
+        id: test
+        if: steps.changes.outputs.changed == 'true' && inputs.test != ''
+        continue-on-error: true
+        run: ${{ inputs.test }}
+
+      - name: Release notes
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          api_url="https://github.com/kowabunga-cloud/openapi/releases/tag"
+          notes="$RUNNER_TEMP/notes.md"
+
+          # API releases since the previous one, for released projects (whose
+          # versions match API ones), or only the new one
+          prev=""
+          if [ "$MODE" = "release" ]; then
+            prev=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+          fi
+          all=$(gh release list -R kowabunga-cloud/openapi --limit 500 \
+            --json tagName -q '.[].tagName' | sed 's/^v//' | sort -V)
+          versions="$VERSION"
+          if [ -n "$prev" ] && grep -qx "$prev" <<< "$all"; then
+            versions=$(awk -v prev="$prev" -v new="$VERSION" '
+              $0 == prev { take = 1; next }
+              take { print }
+              $0 == new { exit }
+            ' <<< "$all")
+          fi
+
+          {
+            api="Kowabunga API v${VERSION}"
+            echo "Update to [${api}](${api_url}/v${VERSION})."
+            # API release notes, newest first, one heading level down
+            for v in $(sort -rV <<< "$versions"); do
+              echo
+              echo "### [API v${v}](${api_url}/v${v})"
+              gh release view "v${v}" -R kowabunga-cloud/openapi \
+                --json body -q .body \
+                | sed '1{/^## /d}' | sed '/./,$!d' | sed 's/^#/##/'
+            done
+          } > "$notes"
+          echo "NOTES=${notes}" >> "$GITHUB_ENV"
+
+          # changelog entry, for released projects
+          if [ "$MODE" = "release" ] && [ -f CHANGELOG.md ]; then
+            url="https://github.com/${REPO}/releases/tag/${TAG}"
+            entry="$RUNNER_TEMP/entry.md"
+            new="$RUNNER_TEMP/changelog.new.md"
+            {
+              echo "## [${VERSION}](${url}) ($(date -u +%Y-%m-%d))"
+              echo
+              cat "$notes"
+              echo
+            } > "$entry"
+            # after the changelog title, if any
+            if head -1 CHANGELOG.md | grep -q '^# '; then
+              awk -v entry="$entry" '
+                function insert() {
+                  while ((getline l < entry) > 0) print l
+                  done = 1
+                }
+                !done && NR > 1 && /^## / { insert() }
+                { print }
+                END { if (!done) insert() }
+              ' CHANGELOG.md > "$new"
+            else
+              cat "$entry" CHANGELOG.md > "$new"
+            fi
+            mv "$new" CHANGELOG.md
+          fi
+
+      - name: Commit
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          id=$(gh api "/users/${SLUG}[bot]" --jq .id)
+          git config user.name "${SLUG}[bot]"
+          git config user.email "${id}+${SLUG}[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "feat: update to API v${VERSION}"
+
+      - name: Release
+        if: >-
+          steps.changes.outputs.changed == 'true' && inputs.mode == 'release'
+          && steps.test.outcome != 'failure'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          git push origin "HEAD:${{ github.event.repository.default_branch }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::warning::Release ${TAG} already exists"
+            exit 0
+          fi
+          gh release create "$TAG" --target "$(git rev-parse HEAD)" \
+            --title "$TAG" --notes-file "$NOTES"
+          echo "Released ${TAG}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Open pull request
+        if: >-
+          steps.changes.outputs.changed == 'true'
+          && (inputs.mode == 'pull-request' || steps.test.outcome == 'failure')
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+        run: |
+          git push -f origin "HEAD:${BRANCH}"
+          existing=$(gh pr list --head "$BRANCH" --json number -q '.[]')
+          if [ -n "$existing" ]; then
+            echo "Pull request for ${BRANCH} already exists, updated"
+          else
+            gh pr create --head "$BRANCH" \
+              --title "feat: update to API v${VERSION}" --body-file "$NOTES"
+          fi
+          if [ "$TEST_OUTCOME" = "failure" ]; then
+            echo "::error::Regenerated code validation failed," \
+              "pull request opened instead of releasing"
+            exit 1
+          fi
