@@ -117,10 +117,16 @@ jobs:
           docker run -d --name mongodb -p 27017:27017 mongo:8.0
           ping='db.runCommand({ ping: 1 })'
           for i in $(seq 1 30); do
-            docker exec mongodb mongosh --quiet --eval "${ping}" && break
+            if docker exec mongodb mongosh --quiet --eval "${ping}"; then
+              echo "TEST_MONGODB_URI=mongodb://127.0.0.1:27017" \
+                >> "$GITHUB_ENV"
+              exit 0
+            fi
             sleep 2
           done
-          echo "TEST_MONGODB_URI=mongodb://127.0.0.1:27017" >> "$GITHUB_ENV"
+          echo "::error::MongoDB server failed to start"
+          docker logs mongodb
+          exit 1
       - name: Tests
         run: make tests
       - name: Upload test results to Codecov

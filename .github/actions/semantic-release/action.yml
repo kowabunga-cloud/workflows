@@ -33,6 +33,8 @@ runs:
         app-id: ${{ inputs.app-id }}
         private-key: ${{ inputs.private-key }}
 
+    # conventional-changelog-conventionalcommits 10+ requires a newer
+    # changelog writer than semantic-release 25 release notes generator
     - name: Release
       id: semantic
       uses: cycjimmy/semantic-release-action@v6
@@ -42,7 +44,7 @@ runs:
           @semantic-release/changelog@7.0.0
           @semantic-release/git@11.0.1
           @semantic-release/exec@7.1.0
-          conventional-changelog-conventionalcommits@10.4.0
+          conventional-changelog-conventionalcommits@9.3.1
       env:
         GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
