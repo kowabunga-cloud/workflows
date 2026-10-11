@@ -2,6 +2,14 @@ name: (reusable) Trigger OpenAPI Release
 
 on:
   workflow_call:
+    inputs:
+      dispatch:
+        description: >-
+          Repositories (space-separated) to notify of new releases, through
+          an "openapi-release" repository dispatch event, with the version
+        required: false
+        type: string
+        default: ''
 
 jobs:
   release:
@@ -37,3 +45,33 @@ jobs:
         with:
           app-id: ${{ vars.KOWABUNGA_BOT_APP_ID }}
           private-key: ${{ secrets.KOWABUNGA_BOT_PRIVATE_KEY }}
+
+  dispatch:
+    name: Notify API consumers
+    if: >-
+      needs.release.outputs.new_release_published == 'true'
+      && inputs.dispatch != ''
+    needs: release
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.KOWABUNGA_BOT_APP_ID }}
+          private-key: ${{ secrets.KOWABUNGA_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Dispatch release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          OWNER: ${{ github.repository_owner }}
+          REPOSITORIES: ${{ inputs.dispatch }}
+          VERSION: ${{ needs.release.outputs.new_release_version }}
+        run: |
+          for repo in $REPOSITORIES; do
+            echo "Notifying ${OWNER}/${repo} of API v${VERSION} release"
+            gh api "repos/${OWNER}/${repo}/dispatches" \
+              -f event_type=openapi-release \
+              -f "client_payload[version]=${VERSION}"
+          done

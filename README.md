@@ -18,7 +18,8 @@ This is a collection of shared GitHub Action workflows.
 | [`go-sec.yml`](.github/workflows/go-sec.yml) | Go security checks (gosec). |
 | [`go-vuln.yml`](.github/workflows/go-vuln.yml) | Go vulnerabilities checks (govulncheck). |
 | [`go-release.yml`](.github/workflows/go-release.yml) | Semantic release, then Ubuntu 24.04 (noble) Debian packages build and APT repository publishing. |
-| [`openapi-release.yml`](.github/workflows/openapi-release.yml) | Semantic release of the OpenAPI specification. |
+| [`openapi-release.yml`](.github/workflows/openapi-release.yml) | Semantic release of the OpenAPI specification, notifying API consumers (`dispatch` input) of new releases through an `openapi-release` repository dispatch event. |
+| [`openapi-update.yml`](.github/workflows/openapi-update.yml) | Updates a project to a new API release: regenerates code, then either validates, commits and releases it with the API version (`mode: release`, SDKs), or opens a pull request (`mode: pull-request`, or on validation failure). |
 
 Go workflows use the latest patch release of the Go version declared in `go.mod`.
 
@@ -52,6 +53,39 @@ jobs:
   release:
     uses: kowabunga-cloud/workflows/.github/workflows/release.yml@v1
     secrets: inherit
+```
+
+API consumers subscribe to OpenAPI releases with:
+
+```yaml
+name: OpenAPI Update
+
+on:
+  repository_dispatch:
+    types: [openapi-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: API version (e.g. 0.57.1)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    uses: kowabunga-cloud/workflows/.github/workflows/openapi-update.yml@v1
+    secrets: inherit
+    with:
+      version: ${{ github.event.client_payload.version || inputs.version }}
+      mode: release
+      setup: go
+      update: |
+        sed -i -E "s|^SDK_OPENAPI_VERSION = .*|SDK_OPENAPI_VERSION = \"tags/v${VERSION}\"|" Makefile
+        make sdk
+      test: go build ./... && go test ./...
 ```
 
 [`templates/`](templates/) holds the reference semantic-release (`.releaserc.json`) and Dependabot configurations.
