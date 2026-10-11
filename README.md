@@ -23,6 +23,8 @@ This is a collection of shared GitHub Action workflows.
 
 Go workflows use the latest patch release of the Go version declared in `go.mod`.
 
+Release workflows only release commits whose other workflow runs (CI, security and vulnerabilities checks, commit messages ...) all succeeded, waiting for them through the [`wait-for-ci`](.github/actions/wait-for-ci/action.yml) composite action, which requires the `actions: read` permission.
+
 Release workflows share the [`semantic-release`](.github/actions/semantic-release/action.yml) composite action, which pins the whole semantic-release toolchain. They require the `KOWABUNGA_BOT_APP_ID` variable and `KOWABUNGA_BOT_PRIVATE_KEY` secret (GitHub App), so that release commits and tags can be pushed, and other workflows be triggered.
 
 Release commits carry `[skip ci]`, which also prevents their tag push from triggering workflows: projects publishing packages out of a release (e.g. to PyPI, npm, Ansible Galaxy or the APT repository) must do so from workflows triggered by the GitHub release publication:
@@ -45,6 +47,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: write
   issues: write
   pull-requests: write

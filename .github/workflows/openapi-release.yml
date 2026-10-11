@@ -28,6 +28,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # only release commits which passed all checks
+      - name: Wait for CI
+        uses: kowabunga-cloud/workflows/.github/actions/wait-for-ci@v1
+
       # required by the specification build, run at release preparation
       - name: Setup Python
         uses: actions/setup-python@v7

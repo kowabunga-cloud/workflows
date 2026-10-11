@@ -1,0 +1,26 @@
+name: Kowabunga Wait for CI
+description: >-
+  Waits for all other workflow runs of the current commit (CI, security and
+  vulnerabilities checks, commit messages ...) to complete, and fails if any
+  of them didn't succeed, so that releases only happen out of validated
+  commits. Requires the "actions: read" permission.
+
+inputs:
+  timeout-minutes:
+    description: Maximum time to wait for other workflow runs to complete
+    required: false
+    default: '120'
+
+runs:
+  using: composite
+  steps:
+    - name: Wait for other workflow runs
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        SHA: ${{ github.sha }}
+        RUN_ID: ${{ github.run_id }}
+        WORKFLOW_REF: ${{ github.workflow_ref }}
+        TIMEOUT: ${{ inputs.timeout-minutes }}
+      run: ${{ github.action_path }}/wait-for-ci.sh

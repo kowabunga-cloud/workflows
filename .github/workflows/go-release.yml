@@ -24,6 +24,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # only release commits which passed all checks
+      - name: Wait for CI
+        uses: kowabunga-cloud/workflows/.github/actions/wait-for-ci@v1
+
       - name: Release
         id: semantic
         uses: kowabunga-cloud/workflows/.github/actions/semantic-release@v1
