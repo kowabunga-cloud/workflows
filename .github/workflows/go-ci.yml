@@ -115,8 +115,11 @@ jobs:
         run: |
           docker run -d --name mongodb -p 27017:27017 mongo:8.0
           ping='db.runCommand({ ping: 1 })'
+          # mongosh state must stay out of /data/db, which the image entrypoint
+          # chowns at startup (failing on files vanishing meanwhile)
           for i in $(seq 1 30); do
-            if docker exec mongodb mongosh --quiet --eval "${ping}"; then
+            if docker exec -e HOME=/tmp mongodb \
+              mongosh --quiet --eval "${ping}"; then
               echo "TEST_MONGODB_URI=mongodb://127.0.0.1:27017" \
                 >> "$GITHUB_ENV"
               exit 0
