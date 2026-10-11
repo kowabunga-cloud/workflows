@@ -92,7 +92,9 @@ jobs:
 
   tests:
     name: Unit Tests
-    runs-on: ubuntu-26.04
+    # MongoDB releases can't start on Ubuntu 26.04 kernels (6.19+) yet, see
+    # https://jira.mongodb.org/browse/SERVER-121912 and SERVER-136272
+    runs-on: ${{ inputs.mongodb && 'ubuntu-24.04' || 'ubuntu-26.04' }}
 
     steps:
       - name: Update packages
