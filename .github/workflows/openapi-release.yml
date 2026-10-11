@@ -6,50 +6,34 @@ on:
 jobs:
   release:
     name: Create Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       new_release_published: ${{ steps.semantic.outputs.new_release_published }}
       new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+    concurrency:
+      group: release-${{ github.repository }}
+      cancel-in-progress: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
 
+      # required by the specification build, run at release preparation
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
-      - name: Install Node.js
-        uses: actions/setup-node@v6
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
         with:
           node-version: 24
 
-      - name: Install dependencies
-        run: |
-          npm install \
-            @semantic-release/changelog@6.0.3 \
-            @semantic-release/git@10.0.1 \
-            @semantic-release/exec@6.0.3 \
-            conventional-changelog-conventionalcommits@9.1.0
-
-      - name: Create Github App token
-        id: app-token
-        uses: actions/create-github-app-token@v3
+      - name: Release
+        id: semantic
+        uses: kowabunga-cloud/workflows/.github/actions/semantic-release@v1
         with:
           app-id: ${{ vars.KOWABUNGA_BOT_APP_ID }}
           private-key: ${{ secrets.KOWABUNGA_BOT_PRIVATE_KEY }}
-
-      - name: Release
-        uses: cycjimmy/semantic-release-action@v6
-        id: semantic
-        with:
-          semantic_version: 25.0.3
-        env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-
-      - name: Debug
-        run: |
-          echo "Releasing ${{ steps.semantic.outputs.new_release_version }}"

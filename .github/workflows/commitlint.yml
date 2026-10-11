@@ -1,0 +1,74 @@
+name: (reusable) Conventional Commits
+
+# Ensures commits (and pull requests titles, used for squash merges) follow
+# the Conventional Commits specification, which releases and changelogs are
+# generated from.
+
+on:
+  workflow_call:
+
+jobs:
+  commitlint:
+    name: Conventional Commits
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # installed and configured out of the repository, so that projects
+      # don't need any Node.js tooling of their own
+      - name: Install commitlint
+        run: |
+          mkdir -p "$RUNNER_TEMP/commitlint"
+          cd "$RUNNER_TEMP/commitlint"
+          npm install --no-save --no-audit --no-fund \
+            @commitlint/cli@21.2.3 \
+            @commitlint/config-conventional@21.2.3
+          cat > commitlint.config.mjs <<'CONFIG'
+          export default {
+            extends: ['@commitlint/config-conventional'],
+            rules: {
+              // proper nouns and acronyms (e.g. Kahuna, API) are welcome
+              'subject-case': [0],
+              // bodies may hold long URLs or generated release notes
+              'body-max-line-length': [0],
+              'footer-max-line-length': [0],
+            },
+          };
+          CONFIG
+          dir="$RUNNER_TEMP/commitlint"
+          cmd="${dir}/node_modules/.bin/commitlint"
+          cmd="${cmd} --config ${dir}/commitlint.config.mjs --verbose"
+          echo "COMMITLINT=${cmd}" >> "$GITHUB_ENV"
+
+      - name: Validate pull request title
+        if: github.event_name == 'pull_request'
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: echo "$TITLE" | $COMMITLINT
+
+      - name: Validate pull request commits
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: $COMMITLINT --from "$BASE" --to "$HEAD"
+
+      - name: Validate pushed commits
+        if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            $COMMITLINT --last
+          else
+            $COMMITLINT --from "$BEFORE" --to "$AFTER"
+          fi

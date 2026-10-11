@@ -1,0 +1,60 @@
+name: Kowabunga Semantic Release
+description: >-
+  Releases a new version out of Conventional Commits (version bump, changelog,
+  Git tag and GitHub release), with Kowabunga's pinned semantic-release
+  toolchain. Expects the repository to be checked out with full history and
+  without persisted credentials.
+
+inputs:
+  app-id:
+    description: GitHub App ID used to push release commits and tags
+    required: true
+  private-key:
+    description: GitHub App private key
+    required: true
+
+outputs:
+  new_release_published:
+    description: Whether a new release was published
+    value: ${{ steps.semantic.outputs.new_release_published }}
+  new_release_version:
+    description: Version of the new release, if any
+    value: ${{ steps.semantic.outputs.new_release_version }}
+
+runs:
+  using: composite
+  steps:
+    # tags pushed with a GitHub App token (unlike GITHUB_TOKEN) trigger
+    # downstream workflows, e.g. tag-based package publishing
+    - name: Create GitHub App token
+      id: app-token
+      uses: actions/create-github-app-token@v3
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+
+    - name: Release
+      id: semantic
+      uses: cycjimmy/semantic-release-action@v6
+      with:
+        semantic_version: 25.0.9
+        extra_plugins: |
+          @semantic-release/changelog@7.0.0
+          @semantic-release/git@11.0.1
+          @semantic-release/exec@7.1.0
+          conventional-changelog-conventionalcommits@10.4.0
+      env:
+        GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+
+    - name: Summary
+      shell: bash
+      env:
+        PUBLISHED: ${{ steps.semantic.outputs.new_release_published }}
+        VERSION: ${{ steps.semantic.outputs.new_release_version }}
+      run: |
+        if [ "$PUBLISHED" = "true" ]; then
+          echo "Released version ${VERSION}" | tee -a "$GITHUB_STEP_SUMMARY"
+        else
+          echo "No release-worthy changes since last release" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+        fi

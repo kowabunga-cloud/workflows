@@ -1,0 +1,39 @@
+name: (reusable) Semantic Release
+
+# Releases a new version out of Conventional Commits, without building
+# anything. Projects publishing from tag-triggered workflows (e.g. PyPI, npm,
+# Ansible Galaxy, Debian packages) get them triggered by the pushed tag.
+
+on:
+  workflow_call:
+    outputs:
+      new_release_published:
+        description: Whether a new release was published
+        value: ${{ jobs.release.outputs.new_release_published }}
+      new_release_version:
+        description: Version of the new release, if any
+        value: ${{ jobs.release.outputs.new_release_version }}
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-26.04
+    concurrency:
+      group: release-${{ github.repository }}
+      cancel-in-progress: false
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Release
+        id: semantic
+        uses: kowabunga-cloud/workflows/.github/actions/semantic-release@v1
+        with:
+          app-id: ${{ vars.KOWABUNGA_BOT_APP_ID }}
+          private-key: ${{ secrets.KOWABUNGA_BOT_PRIVATE_KEY }}
