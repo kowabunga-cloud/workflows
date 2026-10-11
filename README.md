@@ -17,7 +17,8 @@ This is a collection of shared GitHub Action workflows.
 | [`go-ci.yml`](.github/workflows/go-ci.yml) | Go code review, linter, multi-arch builds (Ubuntu 26.04) and unit tests (optionally with a MongoDB server, `mongodb: true`, exposed as `TEST_MONGODB_URI`). |
 | [`go-sec.yml`](.github/workflows/go-sec.yml) | Go security checks (gosec). |
 | [`go-vuln.yml`](.github/workflows/go-vuln.yml) | Go vulnerabilities checks (govulncheck). |
-| [`go-release.yml`](.github/workflows/go-release.yml) | Semantic release, then Ubuntu 26.04 (resolute) Debian packages build and APT repository publishing. |
+| [`go-release.yml`](.github/workflows/go-release.yml) | Semantic release, then Ubuntu 26.04 (resolute) Debian packages build and APT repository publishing, and optionally (`image` input) container image publishing. The release version is passed to the build as `make all VERSION=x.y.z`. |
+| [`container.yml`](.github/workflows/container.yml) | Multi-platform (amd64, arm64) container image build and vulnerability scan (Trivy, fixable high and critical ones fail the build). With a `version` input, the image is published to `ghcr.io/<owner>/<image>` (`x.y.z`, `x.y`, `x` and `latest` tags), with SBOM and SLSA provenance attestations, and signed (Sigstore keyless signing). |
 | [`openapi-release.yml`](.github/workflows/openapi-release.yml) | Semantic release of the OpenAPI specification, notifying API consumers (`dispatch` input) of new releases through an `openapi-release` repository dispatch event. |
 | [`openapi-update.yml`](.github/workflows/openapi-update.yml) | Updates a project to a new API release: regenerates code, then either validates, commits and releases it with the API version (`mode: release`, SDKs), or opens a pull request (`mode: pull-request`, or on validation failure). |
 
@@ -26,6 +27,17 @@ Go workflows use the latest patch release of the Go version declared in `go.mod`
 Release workflows only release commits whose other workflow runs (CI, security and vulnerabilities checks, commit messages ...) all succeeded, waiting for them through the [`wait-for-ci`](.github/actions/wait-for-ci/action.yml) composite action, which requires the `actions: read` permission.
 
 Release workflows share the [`semantic-release`](.github/actions/semantic-release/action.yml) composite action, which pins the whole semantic-release toolchain. They require the `KOWABUNGA_BOT_APP_ID` variable and `KOWABUNGA_BOT_PRIVATE_KEY` secret (GitHub App), so that release commits and tags can be pushed, and other workflows be triggered.
+
+Publishing container images requires the `packages: write`, `id-token: write` (signing) and `attestations: write` permissions. Images can be verified with:
+
+```sh
+cosign verify ghcr.io/kowabunga-cloud/<image>:<version> \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/kowabunga-cloud/'
+gh attestation verify oci://ghcr.io/kowabunga-cloud/<image>:<version> --owner kowabunga-cloud
+```
+
+Newly published GitHub Container Registry packages are private: make them public once, from the package settings.
 
 Release commits carry `[skip ci]`, which also prevents their tag push from triggering workflows: projects publishing packages out of a release (e.g. to PyPI, npm, Ansible Galaxy or the APT repository) must do so from workflows triggered by the GitHub release publication:
 

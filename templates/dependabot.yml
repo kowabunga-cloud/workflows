@@ -1,7 +1,8 @@
 ---
 # Dependabot configuration template: keep only the ecosystems used by the
 # project. Commit messages follow Conventional Commits: Go and Node.js
-# dependencies updates trigger patch releases, GitHub Actions ones don't.
+# and container base images updates trigger patch releases, GitHub Actions
+# ones don't.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -24,4 +25,16 @@ updates:
       include: scope
     groups:
       go-modules:
+        patterns: ["*"]
+
+  # container base images (Dockerfile), pinned by digest
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      docker:
         patterns: ["*"]
