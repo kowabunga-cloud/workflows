@@ -4,38 +4,55 @@ on:
   workflow_call:
     inputs:
       pkgs:
+        description: Extra Ubuntu packages required to build and test
         required: false
         type: string
-
-env:
-  GO_VERSION: 1.27
+      mongodb:
+        description: >-
+          Run a MongoDB server for integration tests, exposed through the
+          TEST_MONGODB_URI environment variable
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   vet:
     name: Code Review
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+      - name: Find out Go version
+        # latest patch release of the go.mod language version
+        run: |
+          v=$(sed -nE 's/^go ([0-9]+\.[0-9]+).*/\1/p' go.mod)
+          echo "GO_VERSION=${v}" >> "$GITHUB_ENV"
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - name: Code Acceptance
         run: make vet
 
   lint:
     name: Code Linter
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+      - name: Find out Go version
+        # latest patch release of the go.mod language version
+        run: |
+          v=$(sed -nE 's/^go ([0-9]+\.[0-9]+).*/\1/p' go.mod)
+          echo "GO_VERSION=${v}" >> "$GITHUB_ENV"
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - name: Linter
         run: make lint
 
@@ -44,22 +61,30 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        include:
-          - os: ubuntu-24.04
-            arch: amd64
-          - os: ubuntu-24.04-arm
-            arch: arm64
+        # Ubuntu 24.04 LTS (noble) is the release packages target, Ubuntu
+        # 26.04 LTS (resolute) the latest one
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - ubuntu-26.04
+          - ubuntu-26.04-arm
 
     steps:
       - name: Update packages
         run: sudo apt-get update
       - name: Install package dependencies
         run: sudo apt-get install -y debhelper ${{ inputs.pkgs }}
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+      - name: Find out Go version
+        # latest patch release of the go.mod language version
+        run: |
+          v=$(sed -nE 's/^go ([0-9]+\.[0-9]+).*/\1/p' go.mod)
+          echo "GO_VERSION=${v}" >> "$GITHUB_ENV"
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - name: Retrieve dependencies
         run: make mod
       - name: Build
@@ -67,7 +92,7 @@ jobs:
 
   tests:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Update packages
@@ -75,11 +100,27 @@ jobs:
       - name: Install package dependencies
         run: sudo apt-get install -y debhelper ${{ inputs.pkgs }}
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+      - name: Find out Go version
+        # latest patch release of the go.mod language version
+        run: |
+          v=$(sed -nE 's/^go ([0-9]+\.[0-9]+).*/\1/p' go.mod)
+          echo "GO_VERSION=${v}" >> "$GITHUB_ENV"
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+      - name: Start MongoDB
+        if: inputs.mongodb
+        run: |
+          docker run -d --name mongodb -p 27017:27017 mongo:8.0
+          ping='db.runCommand({ ping: 1 })'
+          for i in $(seq 1 30); do
+            docker exec mongodb mongosh --quiet --eval "${ping}" && break
+            sleep 2
+          done
+          echo "TEST_MONGODB_URI=mongodb://127.0.0.1:27017" >> "$GITHUB_ENV"
       - name: Tests
         run: make tests
       - name: Upload test results to Codecov

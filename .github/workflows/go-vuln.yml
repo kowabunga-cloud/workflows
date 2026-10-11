@@ -7,23 +7,26 @@ on:
         required: false
         type: string
 
-env:
-  GO_VERSION: 1.27
-
 jobs:
   govulncheck:
     name: Run vulnerability checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Update packages
         run: sudo apt-get update
       - name: Install package dependencies
         run: sudo apt-get install -y debhelper ${{ inputs.pkgs }}
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+      - name: Find out Go version
+        # latest patch release of the go.mod language version
+        run: |
+          v=$(sed -nE 's/^go ([0-9]+\.[0-9]+).*/\1/p' go.mod)
+          echo "GO_VERSION=${v}" >> "$GITHUB_ENV"
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - name: Run GoVulnCheck security scanner
         run: make vuln
