@@ -37,7 +37,7 @@ runs:
     # changelog writer than semantic-release 25 release notes generator
     - name: Release
       id: semantic
-      uses: cycjimmy/semantic-release-action@v6
+      uses: cycjimmy/semantic-release-action@v8
       with:
         semantic_version: 25.0.9
         extra_plugins: |
